@@ -1,0 +1,102 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Green Light</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #eee;
+               font-family: ui-monospace, monospace; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+  #ui { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        width: min(34rem, 90vw); text-align: center; }
+  input { width: 100%; box-sizing: border-box; padding: .6rem; font: inherit;
+          background: #000a; color: #fff; border: 1px solid #fff6; }
+  #out { margin-top: .8rem; text-shadow: 0 0 4px #000; }
+</style>
+<canvas id="gl"></canvas>
+<div id="ui">
+  <p>Only the GPU knows the flag. Make it go green.</p>
+  <input id="key" placeholder="HXN{...}" autocomplete="off" spellcheck="false">
+  <div id="out"></div>
+</div>
+
+<script id="vs" type="x-shader/x-vertex">#version 300 es
+// One triangle that covers the whole screen, no vertex buffer needed.
+void main() { gl_Position = vec4(vec2(gl_VertexID & 1, gl_VertexID >> 1) * 4.0 - 1.0, 0.0, 1.0); }
+</script>
+
+<script id="fs" type="x-shader/x-fragment">#version 300 es
+precision highp float;
+precision highp int;
+
+uniform int key[64];
+uniform int len;
+uniform float t;
+out vec4 color;
+
+const int N = 25;
+const int B = (N + 3) / 4;
+
+const ivec4 X = ivec4(0x13, 0x37, 0x41, 0x42);
+
+const ivec4 T[B] = ivec4[B](ivec4(104, 121, 25, 10), ivec4(77, 67, 50, 38), ivec4(98, 80, 119, 51), ivec4(35, 72, 41, 32), ivec4(131, 108, 51, 117), ivec4(108, 100, 43, 120), ivec4(25, 61, 71, 69));
+
+void main() {
+    int bad = len == N ? 0 : 1;
+
+    for (int b = 0; b < B; b++) {
+        ivec4 k = ivec4(key[4 * b], key[4 * b + 1], key[4 * b + 2], key[4 * b + 3]);
+        ivec4 r = (k.wzyx ^ X) + b;
+        bad |= int(any(notEqual(r, T[b])));
+    }
+
+    vec2 uv = gl_FragCoord.xy / 64.0;
+    float wave = 0.85 + 0.15 * sin(uv.x + uv.y + t);
+
+    color = bad == 0 ? vec4(0.10, 0.85, 0.35, 1.0) * wave
+                     : vec4(0.80, 0.08, 0.12, 1.0) * wave;
+}
+</script>
+
+<script>
+  const gl = document.getElementById('gl').getContext('webgl2');
+  const out = document.getElementById('out');
+  const input = document.getElementById('key');
+
+  const prog = gl.createProgram();
+  for (const [type, id] of [[gl.VERTEX_SHADER, 'vs'], [gl.FRAGMENT_SHADER, 'fs']]) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, document.getElementById(id).textContent);
+    gl.compileShader(s);
+    gl.attachShader(prog, s);
+  }
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+
+  const canvas = gl.canvas;
+
+  function upload() {
+    const bytes = new TextEncoder().encode(input.value).slice(0, 64);
+    const codes = new Int32Array(64);
+    codes.set(bytes);
+    gl.uniform1iv(gl.getUniformLocation(prog, 'key'), codes);
+    gl.uniform1i(gl.getUniformLocation(prog, 'len'), bytes.length);
+  }
+
+  function frame(ms) {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.uniform1f(gl.getUniformLocation(prog, 't'), ms / 400);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    // The page only reports what colour the GPU painted.
+    const px = new Uint8Array(4);
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    out.textContent = !input.value ? '' : px[1] > px[0] ? '[+] Correct flag.' : '[-] Wrong flag.';
+    requestAnimationFrame(frame);
+  }
+
+  input.value = decodeURIComponent(location.hash.slice(1));
+  input.addEventListener('input', upload);
+  upload();
+  requestAnimationFrame(frame);
+</script>

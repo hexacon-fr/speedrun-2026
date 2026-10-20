@@ -1,0 +1,11 @@
+services:
+  slippery:
+    build: . # Dockerfile location
+    ports:
+      - "1337:1337" # EXTERNAL_PORT:INTERNAL_PORT
+    restart: always # Always restart the container if it stops
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID # apache starts as root and drops to www-data
+      - SETGID

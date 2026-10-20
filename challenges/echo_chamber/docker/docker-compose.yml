@@ -1,0 +1,8 @@
+services:
+  echo_chamber:
+    build: . # Dockerfile location
+    ports:
+      - "1337:1337" # EXTERNAL_PORT:INTERNAL_PORT
+    restart: always # Always restart the container if it stops
+    cap_drop:
+      - ALL

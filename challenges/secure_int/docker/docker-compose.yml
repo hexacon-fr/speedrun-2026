@@ -1,0 +1,10 @@
+services:
+  secure-int:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "1337:1337"
+    restart: always
+    cap_drop:
+      - ALL

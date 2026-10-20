@@ -1,0 +1,8 @@
+services:
+  customcpu:
+    build: .
+    ports:
+      - "127.0.0.1:1337:1337"
+    restart: always
+    cap_drop:
+      - ALL

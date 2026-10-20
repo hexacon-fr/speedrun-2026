@@ -1,0 +1,8 @@
+services:
+  tensorflaw:
+    build: .
+    ports:
+      - "1337:1337"
+    restart: always
+    cap_drop:
+      - ALL
